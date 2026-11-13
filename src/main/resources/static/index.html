@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Complex Code Testing Dashboard</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f4f6f8;color:#172033}
+header{background:#172a46;color:#fff;padding:24px 32px}
+main{max-width:1100px;margin:24px auto;padding:0 18px}
+.card{background:#fff;padding:20px;margin:18px 0;border-radius:10px;box-shadow:0 2px 10px #0001}
+textarea{width:100%;height:430px;font-family:Consolas,monospace;font-size:14px;padding:14px;box-sizing:border-box;border:1px solid #ccd3df;border-radius:8px;resize:vertical}
+button{padding:13px 24px;margin-top:14px;background:#1d5fd1;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:bold}
+button:disabled{opacity:.6;cursor:wait}
+.test-case{border:1px solid #d8dee8;border-radius:8px;padding:18px;margin:16px 0;background:#fbfcfe}
+.test-title{font-size:20px;font-weight:bold;margin-bottom:16px}
+.label{font-weight:bold;display:block;margin-top:12px;margin-bottom:6px}
+.input-box{background:#eef2f7;padding:12px;border-radius:6px;white-space:pre-wrap;word-break:break-word}
+.output-box{padding:13px;border-radius:6px;font-weight:bold}
+.pass{background:#e8f7ee;color:#176b39}
+.fail{background:#fff0f0;color:#b42318}
+.details{margin-top:12px;color:#4d596b;white-space:pre-wrap}
+.summary{font-size:17px;font-weight:bold}
+.small{font-size:13px;color:#5d6879}
+.error{white-space:pre-wrap;background:#fff0f0;color:#b42318;padding:14px;border-radius:6px}
+</style>
+</head>
+<body>
+<header><h1>Complex Code Testing Dashboard</h1><p>Five software testing tools applied to complex Java source code</p></header>
+<main>
+<div class="card">
+<h2>Enter Complex Java Code</h2>
+<p class="small">Paste a complete Java class, including as many lines and methods as required. The application creates a temporary Maven project and runs exactly five tools. Each tool produces 5 test cases, for a total of 25 test cases: JUnit 5, JaCoCo, PMD, SpotBugs and Checkstyle.</p>
+<textarea id="code">public class ComplexCalculator {
+    public int calculate(int a, int b, String operation) {
+        if (operation == null) return -1;
+        switch (operation) {
+            case "add": return a + b;
+            case "sub": return a - b;
+            case "mul": return a * b;
+            case "div": return b == 0 ? 0 : a / b;
+            default: return -1;
+        }
+    }
+}</textarea>
+<br><button id="run" onclick="runAnalysis()">Run Testing Analysis</button>
+</div>
+<div id="output"></div>
+</main>
+<script>
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function runAnalysis(){
+ const code=document.getElementById('code').value,btn=document.getElementById('run'),out=document.getElementById('output');
+ if(!code.trim()){out.innerHTML='<div class="card error">Please enter Java code first.</div>';return;}
+ btn.disabled=true;
+ out.innerHTML='<div class="card"><b>Running analysis...</b><p class="small">The five tools are being executed. This may take up to about 2 minutes.</p></div>';
+ try{
+  const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+  const data=await res.json();
+  if(!res.ok){throw new Error(data.note||'Analysis failed.');}
+  let html='<div class="card"><h2>Test Results</h2><p class="small"><b>5 tools × 5 test cases = 25 test cases</b></p>';
+  data.testCases.forEach(t=>{
+   const cls=t.passed?'pass':'fail';
+   html+=`<div class="test-case">
+    <div class="test-title">Test Case: ${t.testCase}</div>
+    <span class="label">Input:</span>
+    <div class="input-box">${esc(t.input)}</div>
+    <span class="label">Output:</span>
+    <div class="output-box ${cls}">${esc(t.output)}</div>
+    <div class="details"><b>Tool:</b> ${esc(t.tool)}<br><b>Details:</b> ${esc(t.details)}</div>
+   </div>`;
+  });
+  html+=`<div class="summary">Total Test Cases: ${data.summary.total} &nbsp;|&nbsp; Passed: ${data.summary.passed} &nbsp;|&nbsp; Not Passed: ${data.summary.failed}</div>`;
+  html+='<p class="small">'+esc(data.note)+'</p></div>';
+  out.innerHTML=html;
+ }catch(e){out.innerHTML='<div class="card error">Analysis failed: '+esc(e.message)+'</div>';}
+ finally{btn.disabled=false;}
+}
+</script>
+</body>
+</html>
